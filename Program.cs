@@ -11,29 +11,33 @@ namespace PDFTextApplication
 {
     internal class Program
     {
+        #region Constantes
+
+        const string environmentVariable = "TESSDATA_PREFIX";
+        const string tessdataPath = @"C:\Program Files (x86)\Tesseract-OCR\tessdata";
+        const string language = "spa";
+        const string tiffImagePath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\InputFile\\PBOGESCANER01TripleA100423214\\Imagen6.tif";
+        const string pdfOutputPath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\OutputFile\\OutImagen640.pdf";
+        const double dpi = 96.0;                                  // Resolución estándar de pantalla
+        
+        #endregion
 
         static void Main()
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start(); // Comienza a medir el tiempo
 
-            //string tiffImagePath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\InputFile\\PASIVO00001086F.tif";
-            string tiffImagePath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\InputFile\\PBOGESCANER01TripleA100423214\\Imagen6.tif";
-            string pdfOutputPath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\OutputFile\\OutImagen640.pdf";
+            ConvertTiffToPdf(tiffImagePath, pdfOutputPath);                            // Procesar el PDF
 
-            // Ruta al archivo PDF original
-            string pdfPath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\InputFile\\Imagen642.pdf";
+            stopwatch.Stop(); // Detiene la medición
+            TimeSpan elapsedTime = stopwatch.Elapsed;
 
-            // Procesar el PDF
-            ConvertTiffToPdf(tiffImagePath, pdfOutputPath);
-
+            Console.WriteLine("Proceso completado en " + elapsedTime.TotalMilliseconds + " milisegundos.");
             Console.WriteLine("Proceso completado. El PDF de texto se ha guardado.");
+            Console.ReadLine();
         }
         static void ConvertTiffToPdf(string tiffImagePath, string pdfOutputPath)
         {
-            string environmentVariable = "TESSDATA_PREFIX";
-            string tessdataPath = @"C:\Program Files (x86)\Tesseract-OCR\tessdata";
-            string language = "spa";
-
-            // Establecemos una variable de entorno(NombreVariableEntorno, ValorAsignado)
             Environment.SetEnvironmentVariable(environmentVariable, tessdataPath);
 
             using (var engine = new TesseractEngine(tessdataPath, language, EngineMode.Default))
@@ -42,126 +46,119 @@ namespace PDFTextApplication
                 {
                     using (var pageProcessor = engine.Process(image))
                     {
-                        var iter = pageProcessor.GetIterator();
-                        iter.Begin();
+                        double scaleWidth, scaleHeight;
 
-                        double imageWidth = image.Width;                     // Ancho de la imagen 
-                        double imageHeight = image.Height;                   // Alto de la imagen
-                        
-                        var document = new PdfDocument();                    // Crear un nuevo documento PDF
-                        var page = document.AddPage();                       // Se crea una nueva pagina
+                        double widthInPoints = ConvertToPoints(image.Width, dpi);
+                        double heightInPoints = ConvertToPoints(image.Height, dpi);
 
-                        double dpi = 96.0;                                  // Resolución estándar de pantalla
+                        var document = CreatePdfDocument(widthInPoints, heightInPoints);
+                        var gfx = CreateGraphics(document);
 
-                        double widthInPoints = imageWidth * 72.0 / dpi;
-                        double heightInPoints = imageHeight * 72.0 / dpi;
+                        scaleWidth = CalculateScale(widthInPoints, image.Width);
+                        scaleHeight = CalculateScale(heightInPoints, image.Height);
 
-                        page.Width = widthInPoints;
-                        page.Height = heightInPoints;
-                        var gfx = XGraphics.FromPdfPage(page);
-
-                        double scaleWidth = widthInPoints / image.Width;
-                        double scaleHeight = heightInPoints / image.Height;
-
-                        // Agregar la imagen TIFF al PDF
-                        var xImage = XImage.FromFile(tiffImagePath);
-                        gfx.DrawImage(xImage, 0, 0, widthInPoints, heightInPoints);
-
-
-                        while (iter.Next(PageIteratorLevel.Word))
-                        {
-                            var word = iter.GetText(PageIteratorLevel.Word).Trim(); // Eliminar espacios en blanco al principio y al final
-
-
-                            if (!string.IsNullOrEmpty(word) && !word.Contains("|"))
-                            {
-                                Rect bounds;
-                                if (iter.TryGetBoundingBox(PageIteratorLevel.Word, out bounds))
-                                {
-                                    // Obtener las coordenadas del carácter
-                                    double x1 = bounds.X1 * scaleWidth;
-                                    double y1 = (bounds.Y1 * scaleHeight) + (bounds.Height * scaleHeight);
-
-
-                                    double width = bounds.Width * scaleWidth;
-                                    double height = bounds.Height * scaleHeight;
-
-                                    // Calcular el tamaño de fuente con el coeficiente de escala
-                                    double realSizeInPoints = 12;
-
-
-                                    string fontFamilyName = "Arial";                             // Nombre de la fuente
-                                    double targetHeightInPixels = bounds.Height;                            // Altura en píxeles que deseas alcanzar
-                                    double epsilon = 1;                                          // Margen de error permitido
-
-                                    var fontTest = new XFont(fontFamilyName, realSizeInPoints);
-                                    double fontHeightInPixels = fontTest.GetHeight();            // Obtener la altura en píxeles de la fuente
-
-                                    while (Math.Abs(fontHeightInPixels - targetHeightInPixels) > epsilon)
-                                    {
-                                        if (fontHeightInPixels < targetHeightInPixels)
-                                        {                                            
-                                            realSizeInPoints += 1.0;   // Incrementa el tamaño de fuente
-                                        }
-                                        else
-                                        {                                            
-                                            realSizeInPoints -= 1.0;  // Decrementa el tamaño de fuente
-                                        }
-
-                                        // Vuelve a calcular la altura en píxeles con el nuevo tamaño de fuente
-                                        fontTest = new XFont(fontFamilyName, realSizeInPoints);
-                                        fontHeightInPixels = fontTest.GetHeight();
-                                    }
-
-
-
-                                    //realSizeInPoints = realSizeInPoints * 
-
-
-
-                                    //var fontTest = new XFont(fontFamilyName, realSizeInPoints);
-                                    //double fontHeightInPixels = fontTest.GetHeight();            // Obtener la altura en píxeles de la fuente
-
-
-                                    //double factorScaler = (realSizeInPoints * height) / fontHeightInPixels;
-                                    //Console.WriteLine("-----------------");
-                                    //Console.WriteLine($"La altura de la fuente {fontFamilyName} a {realSizeInPoints} puntos es {fontHeightInPixels} píxeles.");
-                                    //realSizeInPoints = factorScaler;
-                                    //fontTest = new XFont(fontFamilyName, realSizeInPoints);
-                                    //fontHeightInPixels = fontTest.GetHeight();  // Obtener la altura en píxeles de la fuente
-                                    Console.WriteLine($"La altura de la fuente {fontFamilyName} a {realSizeInPoints} puntos es {fontHeightInPixels} píxeles.");
-
-
-
-                                    if (bounds.X1 < imageWidth && bounds.Y1 < imageHeight)
-                                    {
-                                        var font = new XFont("Arial", realSizeInPoints);                 // Agrega la palabra con el tamaño de fuente calculado
-                                        XBrush brush = XBrushes.Transparent;  // Establecer el color del texto como transparente
-                                        gfx.DrawString(word, font, brush, new XPoint(x1, y1));  // Agregar la palabra y sus coordenadas al PDF
-                                        //gfx.DrawString(word, font, XBrushes.Black, new XPoint(x1, y1));  // Agregar la palabra y sus coordenadas al PDF
-
-                                    }
-                                    else
-                                    {
-                                        Console.Write("Ha soprepasado los limites de la imagen ----------");
-                                    }
-
-                                    Console.Write($"Palabra: {word}");
-                                    Console.Write($"  Tamaño Fuente: {realSizeInPoints}");
-                                    Console.WriteLine($":  Ubicación: X={bounds.X1}, Y={bounds.Y1}, Ancho={bounds.Width}, Alto={bounds.Height}");
-                                }
-
-                            }
-
-                        }
-
-                        // Guardar el documento PDF
-                        document.Save(pdfOutputPath);
-
-                        Console.ReadLine();
+                        AddImageToPdf(gfx, tiffImagePath, widthInPoints, heightInPoints);
+                        ProcessText(pageProcessor, gfx, scaleWidth, scaleHeight);
+                        SaveAndClosePdfDocument(document, pdfOutputPath);
                     }
                 }
             }
+        }
+
+        static void SaveAndClosePdfDocument(PdfDocument document, string outputPath)
+        {
+            document.Save(outputPath);
+            document.Close();
+        }
+
+        static XGraphics CreateGraphics(PdfDocument document)
+        {
+            var page = document.Pages[0];
+            return XGraphics.FromPdfPage(page);
+        }
+
+        static double CalculateScale(double value1, double value2)
+        {
+            return value1 / value2;
+        }
+
+        static PdfDocument CreatePdfDocument(double width, double height)
+        {
+            var document = new PdfDocument();
+            var page = document.AddPage();
+            page.Width = width;
+            page.Height = height;
+            return document;
+        }
+
+        static double ConvertToPoints(double value, double dpi)
+        {
+            return value * 72.0 / dpi;
+        }
+
+        static void ProcessText(Tesseract.Page pageProcessor, XGraphics gfx, double scaleWidth, double scaleHeight)
+        {
+            var iter = pageProcessor.GetIterator();
+            iter.Begin();
+
+            while (iter.Next(PageIteratorLevel.Word))
+            {
+                var word = iter.GetText(PageIteratorLevel.Word).Trim();
+                if (!string.IsNullOrEmpty(word) && !word.Contains("|"))
+                {
+                    Rect bounds;
+                    if (iter.TryGetBoundingBox(PageIteratorLevel.Word, out bounds))
+                    {
+                        // Obtener las coordenadas del carácter
+                        double x1 = bounds.X1 * scaleWidth;
+                        double y1 = (bounds.Y1 * scaleHeight) + (bounds.Height * scaleHeight);
+
+                        double realSizeInPoints = CalculateFontSize(iter, bounds.Height);
+
+                        var font = new XFont("Arial", realSizeInPoints);                   // Agrega la palabra con el tamaño de fuente calculado
+                        XBrush brush = XBrushes.Transparent;                               // Establecer el color del texto como transparente
+                        gfx.DrawString(word, font, brush, new XPoint(x1, y1));             // Agregar la palabra y sus coordenadas al PDF
+                                                                                           //gfx.DrawString(word, font, XBrushes.Black, new XPoint(x1, y1));  // Agregar la palabra y sus coordenadas al PDF
+
+                        //Console.Write($"Palabra: {word}");
+                        //Console.Write($"  Tamaño Fuente: {realSizeInPoints}");
+                        //Console.WriteLine($":  Ubicación: X={bounds.X1}, Y={bounds.Y1}, Ancho={bounds.Width}, Alto={bounds.Height}");
+                    }
+                }
+            }
+        }
+
+        static void AddImageToPdf(XGraphics gfx, string imagePath, double width, double height)
+        {
+            var xImage = XImage.FromFile(imagePath);
+            gfx.DrawImage(xImage, 0, 0, width, height);
+        }
+
+        static double CalculateFontSize(PageIterator iter, double targetHeightInPixels)
+        {
+            const double epsilon = 1;
+            const string fontFamilyName = "Arial";
+            double realSizeInPoints = 12;
+
+            XFont fontTest = new XFont(fontFamilyName, realSizeInPoints);
+            double fontHeightInPixels = fontTest.GetHeight();
+
+            while (Math.Abs(fontHeightInPixels - targetHeightInPixels) > epsilon)
+            {
+                if (fontHeightInPixels < targetHeightInPixels)
+                {
+                    realSizeInPoints += 1.0;
+                }
+                else
+                {
+                    realSizeInPoints -= 1.0;
+                }
+
+                fontTest = new XFont(fontFamilyName, realSizeInPoints);
+                fontHeightInPixels = fontTest.GetHeight();
+            }
+
+            return realSizeInPoints;
         }
     }
 }
