@@ -33,7 +33,7 @@ namespace PDFTextApplication
             //string tiffFolder = @"C:\Users\duvan.castro\Desktop\TestPDFText\InputFile\PBOGESCANER01TripleA100423214"; // Reemplaza con la ruta de tu carpeta
             string inputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data"; // Reemplaza con la ruta de tu carpeta
             string outputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data";
-            string nameFileDestination = @"pdf.Procesados";
+            string nameFileDestination = @"Data.Process";
             string newOutputFile = Path.Combine(outputFile, nameFileDestination);
 
             if (!Directory.Exists(newOutputFile))
@@ -52,13 +52,31 @@ namespace PDFTextApplication
 
             }
 
+            string nameFileDateTime = ObtenerNombreCarpetaFechaHora();
+            string newOutputFileDate = Path.Combine(newOutputFile, nameFileDateTime);
+
+            if (!Directory.Exists(newOutputFileDate))
+            {
+                Directory.CreateDirectory(newOutputFileDate);
+
+                // Agregar permisos para escritura
+                DirectoryInfo nuevaCarpetaInfo = new DirectoryInfo(newOutputFileDate);
+                DirectorySecurity nuevaCarpetaSecurity = nuevaCarpetaInfo.GetAccessControl();
+                nuevaCarpetaSecurity.AddAccessRule(new FileSystemAccessRule(
+                    new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
+                    FileSystemRights.Write, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                    PropagationFlags.None, AccessControlType.Allow
+                ));
+                nuevaCarpetaInfo.SetAccessControl(nuevaCarpetaSecurity);
+            }
+
             foreach (string file in Directory.GetDirectories(inputFile))
             {
                 string nameFile = Path.GetFileName(file);
 
                 if (nameFile != nameFileDestination)
                 {                    
-                    string newRouteDestination = Path.Combine(newOutputFile, nameFile);
+                    string newRouteDestination = Path.Combine(newOutputFileDate, nameFile);
 
                     if (!Directory.Exists(newRouteDestination))
                     {
@@ -128,6 +146,13 @@ namespace PDFTextApplication
                     }
                 }
             }
+        }
+
+        static string ObtenerNombreCarpetaFechaHora()
+        {
+            DateTime now = DateTime.Now;
+            string nombreCarpeta = now.ToString("yyyyMMddHHmmssfff"); // Formato de fecha y hora
+            return nombreCarpeta;
         }
 
         static void SaveAndClosePdfDocument(PdfDocument document, string outputPath)
