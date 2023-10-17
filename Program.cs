@@ -16,112 +16,65 @@ namespace PDFTextApplication
     {
         #region Constantes
 
-        const string environmentVariable = "TESSDATA_PREFIX";
         const string tessdataPath = @"C:\Program Files (x86)\Tesseract-OCR\tessdata";
         const string language = "spa";
-        const string _tiffImagePath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\InputFile\\PBOGESCANER01TripleA100423214\\Imagen6.tif";
-        const string pdfOutputPath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\OutputFile\\OutImagen640.pdf";
         const double dpi = 96.0;                                  // Resolución estándar de pantalla
-        
+
+        const string inputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data"; // Reemplaza con la ruta de tu carpeta
+        const string outputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data";
+        const string nameDirectoryDestination = @"Data.Process";
+
         #endregion
 
         static void Main()
         {
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start(); // Comienza a medir el tiempo
+            // Iniciar el cronómetro para medir el tiempo de ejecución
+            Stopwatch stopwatch = Stopwatch.StartNew();
 
-            //string tiffFolder = @"C:\Users\duvan.castro\Desktop\TestPDFText\InputFile\PBOGESCANER01TripleA100423214"; // Reemplaza con la ruta de tu carpeta
-            string inputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data"; // Reemplaza con la ruta de tu carpeta
-            string outputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data";
-            string nameFileDestination = @"Data.Process";
-            string newOutputFile = Path.Combine(outputFile, nameFileDestination);
+            // Crear el directorio de destino para el archivo de salida
+            string newOutputFile = Path.Combine(outputFile, nameDirectoryDestination);      
+            CreateDirectoryWithWriteAccess(newOutputFile);
 
-            if (!Directory.Exists(newOutputFile))
+            // Generar un nombre de directorio basado en la fecha y hora actual
+            string newOutputDirectoryDate = Path.Combine(newOutputFile, GetNameFileDate());
+            CreateDirectoryWithWriteAccess(newOutputDirectoryDate);
+
+            // Recorrer los directorios de entrada
+            foreach (string currentDirectory in Directory.GetDirectories(inputFile))
             {
-                Directory.CreateDirectory(newOutputFile);
+                string nameCurrentDirectory = Path.GetFileName(currentDirectory);
 
-                // Agregar permisos para escritura
-                DirectoryInfo nuevaCarpetaInfo = new DirectoryInfo(newOutputFile);
-                DirectorySecurity nuevaCarpetaSecurity = nuevaCarpetaInfo.GetAccessControl();
-                nuevaCarpetaSecurity.AddAccessRule(new FileSystemAccessRule(
-                    new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
-                    FileSystemRights.Write, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
-                    PropagationFlags.None, AccessControlType.Allow
-                ));
-                nuevaCarpetaInfo.SetAccessControl(nuevaCarpetaSecurity);
+                // Verificar si el directorio actual no es el directorio de destino
+                if (nameCurrentDirectory != nameDirectoryDestination)
+                {
+                    // Crear la ruta de destino para el directorio actual
+                    string newRouteDestination = Path.Combine(newOutputDirectoryDate, nameCurrentDirectory);
+                    CreateDirectoryWithWriteAccess(newRouteDestination);
 
-            }
+                    // Obtener archivos TIFF en el directorio actual
+                    string[] tiffFiles = Directory.GetFiles(currentDirectory, "*.tif");
 
-            string nameFileDateTime = ObtenerNombreCarpetaFechaHora();
-            string newOutputFileDate = Path.Combine(newOutputFile, nameFileDateTime);
-
-            if (!Directory.Exists(newOutputFileDate))
-            {
-                Directory.CreateDirectory(newOutputFileDate);
-
-                // Agregar permisos para escritura
-                DirectoryInfo nuevaCarpetaInfo = new DirectoryInfo(newOutputFileDate);
-                DirectorySecurity nuevaCarpetaSecurity = nuevaCarpetaInfo.GetAccessControl();
-                nuevaCarpetaSecurity.AddAccessRule(new FileSystemAccessRule(
-                    new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
-                    FileSystemRights.Write, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
-                    PropagationFlags.None, AccessControlType.Allow
-                ));
-                nuevaCarpetaInfo.SetAccessControl(nuevaCarpetaSecurity);
-            }
-
-            foreach (string file in Directory.GetDirectories(inputFile))
-            {
-                string nameFile = Path.GetFileName(file);
-
-                if (nameFile != nameFileDestination)
-                {                    
-                    string newRouteDestination = Path.Combine(newOutputFileDate, nameFile);
-
-                    if (!Directory.Exists(newRouteDestination))
-                    {
-                        Directory.CreateDirectory(newRouteDestination);
-
-
-                        // Agregar permisos para escritura
-                        DirectoryInfo nuevaCarpetaInfo = new DirectoryInfo(newRouteDestination);
-                        DirectorySecurity nuevaCarpetaSecurity = nuevaCarpetaInfo.GetAccessControl();
-                        nuevaCarpetaSecurity.AddAccessRule(new FileSystemAccessRule(
-                            new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
-                            FileSystemRights.Write, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
-                            PropagationFlags.None, AccessControlType.Allow
-                        ));
-                        nuevaCarpetaInfo.SetAccessControl(nuevaCarpetaSecurity);
-                    }
-
-                    string[] tiffFiles = Directory.GetFiles(file, "*.tif");
-
+                    // Procesar cada archivo TIFF y convertirlo a PDF
                     foreach (string tiffFile in tiffFiles)
                     {
                         string outputPath = Path.Combine(newRouteDestination, Path.GetFileNameWithoutExtension(tiffFile) + ".Procesado.pdf");
-                        ConvertTiffToPdf(tiffFile, outputPath);                // Procesar el PDF
+                        ConvertTiffToPdf(tiffFile, outputPath);                
                     }
-
                 }
             }
 
-            stopwatch.Stop(); // Detiene la medición
+            // Detener el cronómetro y calcular el tiempo transcurrido
+            stopwatch.Stop(); 
             TimeSpan elapsedTime = stopwatch.Elapsed;
-
-            ///// realizar metodo /////////////
-            // Convierte milisegundos a minutos y segundos
-            int minutos = (int)elapsedTime.TotalMinutes;
-            int segundosRestantes = elapsedTime.Seconds;
-
-            Console.WriteLine($"{minutos} minutos {segundosRestantes} segundos");
-
-            Console.WriteLine($"Proceso completado en {minutos} minutos {segundosRestantes} segundos");
+            Console.WriteLine($"Proceso completado en {elapsedTime.TotalMinutes} minutos {elapsedTime.Seconds} segundos");
             Console.WriteLine("Proceso completado. El PDF de texto se ha guardado.");
             Console.ReadLine();
         }
+
+
         static void ConvertTiffToPdf(string tiffImagePath, string pdfOutputPath)
         {
-            Environment.SetEnvironmentVariable(environmentVariable, tessdataPath);
+            Environment.SetEnvironmentVariable("TESSDATA_PREFIX", tessdataPath);
 
             using (var engine = new TesseractEngine(tessdataPath, language, EngineMode.Default))
             {
@@ -134,37 +87,64 @@ namespace PDFTextApplication
                         double widthInPoints = ConvertToPoints(image.Width, dpi);
                         double heightInPoints = ConvertToPoints(image.Height, dpi);
 
-                        var document = CreatePdfDocument(widthInPoints, heightInPoints);
-                        var gfx = CreateGraphics(document);
+                        using (var document = CreatePdfDocument(widthInPoints, heightInPoints))
+                        {
+                            using (var gfx = CreateGraphics(document))
+                            {
+                                scaleWidth = CalculateScale(widthInPoints, image.Width);
+                                scaleHeight = CalculateScale(heightInPoints, image.Height);
 
-                        scaleWidth = CalculateScale(widthInPoints, image.Width);
-                        scaleHeight = CalculateScale(heightInPoints, image.Height);
-
-                        AddImageToPdf(gfx, tiffImagePath, widthInPoints, heightInPoints);
-                        ProcessText(pageProcessor, gfx, scaleWidth, scaleHeight);
-                        SaveAndClosePdfDocument(document, pdfOutputPath);
+                                AddImageToPdf(gfx, tiffImagePath, widthInPoints, heightInPoints);
+                                ProcessText(pageProcessor, gfx, scaleWidth, scaleHeight);
+                                SaveAndClosePdfDocument(document, pdfOutputPath);
+                            }
+                        }
                     }
                 }
             }
         }
 
-        static string ObtenerNombreCarpetaFechaHora()
+        /// <summary>
+        /// Verifica si un directorio existe y lo crea si no existe. Luego, asigna permisos de escritura al directorio.
+        /// </summary>
+        /// <param name="directoryPath">La ruta del directorio a verificar y crear si es necesario.</param>
+        public static void CreateDirectoryWithWriteAccess(string directoryPath)
+        {
+            if (!Directory.Exists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+                AssignWritePrivilegesToDirectory(directoryPath);
+            }
+        }
+
+        /// <summary>
+        /// Genera un nombre de carpeta único basado en la fecha y la hora actual.
+        /// </summary>
+        /// <returns>Un nombre de carpeta en formato "yyyyMMddHHmmssfff".</returns>
+        static string GetNameFileDate()
         {
             DateTime now = DateTime.Now;
-            string nombreCarpeta = now.ToString("yyyyMMddHHmmssfff"); // Formato de fecha y hora
+            string nombreCarpeta = now.ToString("yyyyMMddHHmmssfff");   // Formato de fecha y hora
             return nombreCarpeta;
         }
 
-        static void SaveAndClosePdfDocument(PdfDocument document, string outputPath)
+        /// <summary>
+        /// Agrega permisos de escritura a una carpeta.
+        /// </summary>
+        /// <param name="folderPath">La ruta de la carpeta a la que se le asignarán permisos de escritura.</param>
+        static void AssignWritePrivilegesToDirectory(String folderPath)
         {
-            document.Save(outputPath);
-            document.Close();
-        }
-
-        static XGraphics CreateGraphics(PdfDocument document)
-        {
-            var page = document.Pages[0];
-            return XGraphics.FromPdfPage(page);
+            DirectoryInfo newFileInfo = new DirectoryInfo(folderPath);               // Obtener información de la carpeta.
+            DirectorySecurity newFileSecurity = newFileInfo.GetAccessControl();      // Obtener el control de acceso actual de la carpeta.
+            FileSystemAccessRule writeRule = new FileSystemAccessRule(               // Crear una regla de acceso para permitir la escritura a todos los usuarios.
+                new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
+                FileSystemRights.Write,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow
+            );
+            newFileSecurity.AddAccessRule(writeRule);                                // Agregar la regla de acceso al control de acceso.
+            newFileInfo.SetAccessControl(newFileSecurity);                           // Establecer el nuevo control de acceso en la carpeta.
         }
 
         static double CalculateScale(double value1, double value2)
@@ -180,6 +160,24 @@ namespace PDFTextApplication
             page.Height = height;
             return document;
         }
+
+        /// <summary>
+        /// Guarda y cierra un documento PDF.
+        /// </summary>
+        /// <param name="document">El objeto PdfDocument que se va a guardar y cerrar.</param>
+        /// <param name="outputPath">La ruta de salida donde se guardará el documento PDF.</param>
+        static void SaveAndClosePdfDocument(PdfDocument document, string outputPath)
+        {
+            document.Save(outputPath);
+            document.Close();
+        }
+
+        static XGraphics CreateGraphics(PdfDocument document)
+        {
+            var page = document.Pages[0];
+            return XGraphics.FromPdfPage(page);
+        }
+
 
         static double ConvertToPoints(double value, double dpi)
         {
@@ -199,7 +197,6 @@ namespace PDFTextApplication
                     Rect bounds;
                     if (iter.TryGetBoundingBox(PageIteratorLevel.Word, out bounds))
                     {
-                        // Obtener las coordenadas del carácter
                         double x1 = bounds.X1 * scaleWidth;
                         double y1 = (bounds.Y1 * scaleHeight) + (bounds.Height * scaleHeight);
 
