@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using PdfSharp.Drawing;
 using PdfSharp.Drawing.Layout;
 using PdfSharp.Pdf;
@@ -28,20 +30,74 @@ namespace PDFTextApplication
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start(); // Comienza a medir el tiempo
 
-            string tiffFolder = @"C:\Users\duvan.castro\Desktop\TestPDFText\InputFile\PBOGESCANER01TripleA100423214"; // Reemplaza con la ruta de tu carpeta
+            //string tiffFolder = @"C:\Users\duvan.castro\Desktop\TestPDFText\InputFile\PBOGESCANER01TripleA100423214"; // Reemplaza con la ruta de tu carpeta
+            string inputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data"; // Reemplaza con la ruta de tu carpeta
+            string outputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data";
+            string nameFileDestination = @"pdf.Procesados";
+            string newOutputFile = Path.Combine(outputFile, nameFileDestination);
 
-            string[] tiffFiles = Directory.GetFiles(tiffFolder, "*.tif");
-
-            foreach (string tiffFile in tiffFiles)
+            if (!Directory.Exists(newOutputFile))
             {
-                string outputPath = Path.Combine(tiffFolder, Path.GetFileNameWithoutExtension(tiffFile) + ".Procesado.pdf");
-                ConvertTiffToPdf(tiffFile, outputPath);                // Procesar el PDF
+                Directory.CreateDirectory(newOutputFile);
+
+                // Agregar permisos para escritura
+                DirectoryInfo nuevaCarpetaInfo = new DirectoryInfo(newOutputFile);
+                DirectorySecurity nuevaCarpetaSecurity = nuevaCarpetaInfo.GetAccessControl();
+                nuevaCarpetaSecurity.AddAccessRule(new FileSystemAccessRule(
+                    new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
+                    FileSystemRights.Write, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                    PropagationFlags.None, AccessControlType.Allow
+                ));
+                nuevaCarpetaInfo.SetAccessControl(nuevaCarpetaSecurity);
+
+            }
+
+            foreach (string file in Directory.GetDirectories(inputFile))
+            {
+                string nameFile = Path.GetFileName(file);
+
+                if (nameFile != nameFileDestination)
+                {                    
+                    string newRouteDestination = Path.Combine(newOutputFile, nameFile);
+
+                    if (!Directory.Exists(newRouteDestination))
+                    {
+                        Directory.CreateDirectory(newRouteDestination);
+
+
+                        // Agregar permisos para escritura
+                        DirectoryInfo nuevaCarpetaInfo = new DirectoryInfo(newRouteDestination);
+                        DirectorySecurity nuevaCarpetaSecurity = nuevaCarpetaInfo.GetAccessControl();
+                        nuevaCarpetaSecurity.AddAccessRule(new FileSystemAccessRule(
+                            new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
+                            FileSystemRights.Write, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                            PropagationFlags.None, AccessControlType.Allow
+                        ));
+                        nuevaCarpetaInfo.SetAccessControl(nuevaCarpetaSecurity);
+                    }
+
+                    string[] tiffFiles = Directory.GetFiles(file, "*.tif");
+
+                    foreach (string tiffFile in tiffFiles)
+                    {
+                        string outputPath = Path.Combine(newRouteDestination, Path.GetFileNameWithoutExtension(tiffFile) + ".Procesado.pdf");
+                        ConvertTiffToPdf(tiffFile, outputPath);                // Procesar el PDF
+                    }
+
+                }
             }
 
             stopwatch.Stop(); // Detiene la medición
             TimeSpan elapsedTime = stopwatch.Elapsed;
 
-            Console.WriteLine("Proceso completado en " + elapsedTime.TotalMilliseconds + " milisegundos.");
+            ///// realizar metodo /////////////
+            // Convierte milisegundos a minutos y segundos
+            int minutos = (int)elapsedTime.TotalMinutes;
+            int segundosRestantes = elapsedTime.Seconds;
+
+            Console.WriteLine($"{minutos} minutos {segundosRestantes} segundos");
+
+            Console.WriteLine($"Proceso completado en {minutos} minutos {segundosRestantes} segundos");
             Console.WriteLine("Proceso completado. El PDF de texto se ha guardado.");
             Console.ReadLine();
         }
