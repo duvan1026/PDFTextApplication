@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using PdfSharp.Drawing;
 using PdfSharp.Drawing.Layout;
 using PdfSharp.Pdf;
@@ -16,7 +17,7 @@ namespace PDFTextApplication
         const string environmentVariable = "TESSDATA_PREFIX";
         const string tessdataPath = @"C:\Program Files (x86)\Tesseract-OCR\tessdata";
         const string language = "spa";
-        const string tiffImagePath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\InputFile\\PBOGESCANER01TripleA100423214\\Imagen6.tif";
+        const string _tiffImagePath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\InputFile\\PBOGESCANER01TripleA100423214\\Imagen6.tif";
         const string pdfOutputPath = "C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\OutputFile\\OutImagen640.pdf";
         const double dpi = 96.0;                                  // Resolución estándar de pantalla
         
@@ -27,7 +28,15 @@ namespace PDFTextApplication
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start(); // Comienza a medir el tiempo
 
-            ConvertTiffToPdf(tiffImagePath, pdfOutputPath);                            // Procesar el PDF
+            string tiffFolder = @"C:\Users\duvan.castro\Desktop\TestPDFText\InputFile\PBOGESCANER01TripleA100423214"; // Reemplaza con la ruta de tu carpeta
+
+            string[] tiffFiles = Directory.GetFiles(tiffFolder, "*.tif");
+
+            foreach (string tiffFile in tiffFiles)
+            {
+                string outputPath = Path.Combine(tiffFolder, Path.GetFileNameWithoutExtension(tiffFile) + ".Procesado.pdf");
+                ConvertTiffToPdf(tiffFile, outputPath);                // Procesar el PDF
+            }
 
             stopwatch.Stop(); // Detiene la medición
             TimeSpan elapsedTime = stopwatch.Elapsed;
