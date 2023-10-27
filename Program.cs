@@ -50,6 +50,11 @@ namespace PDFTextApplication
             Console.ReadLine();
         }
 
+        /// <summary>
+        /// Procesa los directorios de entrada y mueve archivos a directorios de destino basados en la fecha.
+        /// </summary>
+        /// <param name="inputFile">El directorio de entrada que contiene subdirectorios a procesar.</param>
+        /// <param name="outputDirectoryDate">El directorio de destino basado en la fecha donde se moverán los archivos.</param>
         static void ProcessInputDirectories(string inputFile, string outputDirectoryDate)
         {
             // Recorrer los directorios de entrada
@@ -69,6 +74,77 @@ namespace PDFTextApplication
             }
         }
 
+        /// <summary>
+        /// Procesa archivos TIFF en un directorio de entrada y los convierte en un documento PDF de destino.
+        /// </summary>
+        /// <param name="directoryInput">El directorio de entrada que contiene archivos TIFF a procesar.</param>
+        /// <param name="destinationRoute">El directorio de destino donde se almacenará el documento PDF resultante.</param>
+        static void ProcessTiffFiles(string directoryInput, string destinationRoute)
+        {
+            // Obtener archivos TIFF en el directorio actual
+            string[] tiffFiles = GetTiffFilesInDirectory(directoryInput);
+            if (tiffFiles.Length == 0) return;
+
+            string outputnamePDFTotal = GetOutputPdfName(destinationRoute);
+
+            using (PdfDocument outputDocument = CreatePdfDocument())
+            {
+                // Procesar cada archivo TIFF y convertirlo a PDF
+                foreach (string tiffFile in tiffFiles)
+                {
+                    string outputPath = GetPdfOutputPath(destinationRoute, tiffFile);
+                    ConvertTiffToPdf(tiffFile, outputPath);
+                    AddPagesFromTiffToPdf(outputPath, outputDocument);
+                }
+                SavePdfDocument(outputDocument, outputnamePDFTotal);
+            }
+        }
+
+        /// <summary>
+        /// Obtiene el nombre del archivo PDF de salida basado en el directorio de destino.
+        /// </summary>
+        /// <param name="destinationRoute">El directorio de destino para el archivo PDF.</param>
+        /// <returns>El nombre del archivo PDF de salida.</returns>
+        static string GetOutputPdfName(string destinationRoute)
+        {
+            return Path.Combine(destinationRoute, Path.GetFileName(destinationRoute) + outputFormat);
+        }
+
+        /// <summary>
+        /// Obtiene archivos TIFF en un directorio de entrada.
+        /// </summary>
+        /// <param name="directoryInput">El directorio de entrada que contiene archivos TIFF.</param>
+        /// <returns>Un arreglo de rutas de archivo TIFF encontrados en el directorio de entrada.</returns>
+        static string[] GetTiffFilesInDirectory(string directoryInput)
+        {
+            return Directory.GetFiles(directoryInput, inputFormat);
+        }
+
+        /// <summary>
+        /// Crea un nuevo documento PDF.
+        /// </summary>
+        /// <returns>Un objeto PdfDocument que se utilizará como documento PDF de destino.</returns>
+        static PdfDocument CreatePdfDocument()
+        {
+            return new PdfDocument();
+        }
+
+        /// <summary>
+        /// Obtiene la ruta de salida del archivo PDF basada en la ruta de destino y el archivo TIFF de entrada.
+        /// </summary>
+        /// <param name="destinationRoute">La ruta de destino para el archivo PDF.</param>
+        /// <param name="tiffFile">La ruta del archivo TIFF de entrada.</param>
+        /// <returns>La ruta del archivo PDF de salida.</returns>
+        static string GetPdfOutputPath(string destinationRoute, string tiffFile)
+        {
+            return Path.Combine(destinationRoute, Path.GetFileNameWithoutExtension(tiffFile) + outputFormat);
+        }
+
+        /// <summary>
+        /// Agrega las páginas de un archivo TIFF a un documento PDF de destino.
+        /// </summary>
+        /// <param name="tiffFilePath">La ruta del archivo TIFF del cual se extraerán las páginas.</param>
+        /// <param name="targetDocument">El documento PDF de destino al cual se agregarán las páginas del archivo TIFF.</param>
         static void AddPagesFromTiffToPdf(string tiffFilePath, PdfDocument targetDocument)
         {
             using (PdfDocument inputDocument = PdfReader.Open(tiffFilePath, PdfDocumentOpenMode.Import))
@@ -82,26 +158,7 @@ namespace PDFTextApplication
             }
         }
 
-        static void ProcessTiffFiles(string directoryInput, string destinationRoute)
-        {
-            // Obtener archivos TIFF en el directorio actual
-            string[] tiffFiles = Directory.GetFiles(directoryInput, inputFormat);
-            if (tiffFiles.Length == 0) return;
 
-            string outputnamePDFTotal = Path.Combine(destinationRoute, Path.GetFileName(destinationRoute) + outputFormat);
-
-            using (PdfDocument outputDocument = new PdfDocument())
-            {
-                // Procesar cada archivo TIFF y convertirlo a PDF
-                foreach (string tiffFile in tiffFiles)
-                {
-                    string outputPath = Path.Combine(destinationRoute, Path.GetFileNameWithoutExtension(tiffFile) + outputFormat);
-                    ConvertTiffToPdf(tiffFile, outputPath);
-                    AddPagesFromTiffToPdf(outputPath, outputDocument);
-                }
-                SavePdfDocument(outputDocument,outputnamePDFTotal);
-            }
-        }
 
         // TODO: Arregloarlo para implementarlo en la libreriaOCR
         static void ConvertTiffToPdf(string tiffImagePath, string pdfOutputPath)
@@ -116,17 +173,17 @@ namespace PDFTextApplication
                     {
                         double scaleWidth, scaleHeight;
 
-                        double widthInPoints = ConvertToPoints(image.Width, dpi);
-                        double heightInPoints = ConvertToPoints(image.Height, dpi);
+                        var imageSize = new XSize(ConvertToPoints(image.Width, dpi), 
+                                                  ConvertToPoints(image.Height, dpi));
 
-                        using (var document = CreatePdfDocument(widthInPoints, heightInPoints))
+                        using (var document = CreateCustomPdfDoc(imageSize))
                         {
                             using (var gfx = CreateGraphics(document))
                             {
-                                scaleWidth = CalculateScale(widthInPoints, image.Width);
-                                scaleHeight = CalculateScale(heightInPoints, image.Height);
+                                scaleWidth = CalculateScale(imageSize.Width, image.Width);
+                                scaleHeight = CalculateScale(imageSize.Height, image.Height);
 
-                                AddImageToPdf(gfx, tiffImagePath, widthInPoints, heightInPoints);
+                                AddImageToPdf(gfx, tiffImagePath, imageSize);
                                 ProcessText(pageProcessor, gfx, scaleWidth, scaleHeight);
                                 SavePdfDocument(document, pdfOutputPath);
                             }
@@ -179,17 +236,28 @@ namespace PDFTextApplication
             newFileInfo.SetAccessControl(newFileSecurity);                           // Establecer el nuevo control de acceso en la carpeta.
         }
 
+        /// <summary>
+        /// Calcula la escala entre dos valores numéricos.
+        /// </summary>
+        /// <param name="value1">El primer valor numérico.</param>
+        /// <param name="value2">El segundo valor numérico (divisor).</param>
+        /// <returns>El resultado de dividir el primer valor por el segundo valor, que representa la escala.</returns>
         static double CalculateScale(double value1, double value2)
         {
             return value1 / value2;
         }
 
-        static PdfDocument CreatePdfDocument(double width, double height)
+        /// <summary>
+        /// Crea un documento PDF personalizado con las dimensiones especificadas.
+        /// </summary>
+        /// <param name="imageSize">El tamaño del documento PDF en formato XSize (ancho y alto).</param>
+        /// <returns>Un objeto PdfDocument que representa el nuevo documento PDF con las dimensiones especificadas.</returns>
+        static PdfDocument CreateCustomPdfDoc(XSize imageSize)
         {
-            var document = new PdfDocument();
+            var document = CreatePdfDocument();
             var page = document.AddPage();
-            page.Width = width;
-            page.Height = height;
+            page.Width = imageSize.Width;
+            page.Height = imageSize.Height;
             return document;
         }
 
@@ -203,18 +271,35 @@ namespace PDFTextApplication
             document.Save(outputPath);
         }
 
+        /// <summary>
+        /// Crea un contexto gráfico (XGraphics) para dibujar en la primera página de un documento PDF.
+        /// </summary>
+        /// <param name="document">El documento PDF en el que se va a crear el contexto gráfico.</param>
+        /// <returns>Un objeto XGraphics que proporciona un contexto gráfico para dibujar en la primera página del documento PDF.</returns>
         static XGraphics CreateGraphics(PdfDocument document)
         {
             var page = document.Pages[0];
             return XGraphics.FromPdfPage(page);
         }
 
-
+        /// <summary>
+        /// Convierte un valor de longitud desde una unidad de medida específica a puntos (72 puntos por pulgada) en un contexto de resolución dado.
+        /// </summary>
+        /// <param name="value">El valor de longitud que se desea convertir.</param>
+        /// <param name="dpi">La resolución en puntos por pulgada (DPI) en la que se realiza la conversión.</param>
+        /// <returns>El valor de longitud convertido a puntos en el contexto de resolución especificado.</returns>
         static double ConvertToPoints(double value, double dpi)
         {
             return value * 72.0 / dpi;
         }
 
+        /// <summary>
+        /// Procesa y dibuja palabras en un documento PDF.
+        /// </summary>
+        /// <param name="pageProcessor">El procesador de páginas Tesseract.</param>
+        /// <param name="gfx">El contexto gráfico para el PDF.</param>
+        /// <param name="scaleWidth">Factor de escala para el ancho.</param>
+        /// <param name="scaleHeight">Factor de escala para la altura.</param>
         static void ProcessText(Tesseract.Page pageProcessor, XGraphics gfx, double scaleWidth, double scaleHeight)
         {
             var iter = pageProcessor.GetIterator();
@@ -231,33 +316,57 @@ namespace PDFTextApplication
                         double x1 = bounds.X1 * scaleWidth;
                         double y1 = (bounds.Y1 * scaleHeight) + (bounds.Height * scaleHeight);
 
-                        double realSizeInPoints = CalculateFontSize(iter, bounds.Height);
+                        double realSizeInPoints = CalculateFontSize(bounds.Height);
 
-                        var font = new XFont("Arial", realSizeInPoints);                   // Agrega la palabra con el tamaño de fuente calculado
-                        XBrush brush = XBrushes.Transparent;                               // Establecer el color del texto como transparente
-                        gfx.DrawString(word, font, brush, new XPoint(x1, y1));             // Agregar la palabra y sus coordenadas al PDF
-                                                                                           //gfx.DrawString(word, font, XBrushes.Black, new XPoint(x1, y1));  // Agregar la palabra y sus coordenadas al PDF
+                        DrawTextOnPdf(gfx, word, new XPoint(x1, y1), realSizeInPoints);
                     }
                 }
             }
         }
 
-        static void AddImageToPdf(XGraphics gfx, string imagePath, double width, double height)
+        /// <summary>
+        /// Dibuja el texto en un documento PDF en la ubicación especificada con el tamaño de fuente indicado.
+        /// </summary>
+        /// <param name="gfx">El contexto gráfico para el PDF.</param>
+        /// <param name="text">El texto a dibujar.</param>
+        /// <param name="position">La posición (X, Y) en la que se dibujará el texto.</param>
+        /// <param name="fontSize">Tamaño de fuente en puntos.</param>
+        static void DrawTextOnPdf(XGraphics gfx, string text, XPoint position, double fontSize)
         {
-            var xImage = XImage.FromFile(imagePath);
-            gfx.DrawImage(xImage, 0, 0, width, height);
+            var font = new XFont("Arial", fontSize);                // Agrega la palabra con el tamaño de fuente calculado
+            XBrush brush = XBrushes.Transparent;                    // Establecer el color del texto como transparente
+            gfx.DrawString(text, font, brush, position);    // Agregar la palabra y sus coordenadas al PDF
+            //gfx.DrawString(word, font, XBrushes.Black, new XPoint(x1, y1));  // Agregar la palabra y sus coordenadas al PDF
         }
 
-        static double CalculateFontSize(PageIterator iter, double targetHeightInPixels)
+
+        /// <summary>
+        /// Agrega una imagen desde un archivo a un documento PDF en el contexto gráfico especificado.
+        /// </summary>
+        /// <param name="gfx">El contexto gráfico donde se agregará la imagen al PDF.</param>
+        /// <param name="imagePath">La ruta del archivo de imagen a agregar al PDF.</param>
+        /// <param name="imageSize">El tamaño de la imagen a agregar en el formato XSize (ancho y alto).</param>
+        static void AddImageToPdf(XGraphics gfx, string imagePath, XSize imageSize)
         {
-            const double epsilon = 1;
+            var xImage = XImage.FromFile(imagePath);
+            gfx.DrawImage(xImage, 0, 0, imageSize.Width, imageSize.Height);
+        }
+
+        /// <summary>
+        /// Calcula el tamaño de fuente en puntos para que la altura de la fuente coincida con el valor deseado en píxeles.
+        /// </summary>
+        /// <param name="targetHeightInPixels">La altura de la fuente deseada en píxeles.</param>
+        /// <returns>El tamaño de fuente en puntos que produce la altura de fuente deseada.</returns>
+        static double CalculateFontSize( double targetHeightInPixels)
+        {
+            const double tolerance = 1;
             const string fontFamilyName = "Arial";
             double realSizeInPoints = 12;
 
             XFont fontTest = new XFont(fontFamilyName, realSizeInPoints);
             double fontHeightInPixels = fontTest.GetHeight();
 
-            while (Math.Abs(fontHeightInPixels - targetHeightInPixels) > epsilon)
+            while (Math.Abs(fontHeightInPixels - targetHeightInPixels) > tolerance)
             {
                 if (fontHeightInPixels < targetHeightInPixels)
                 {
