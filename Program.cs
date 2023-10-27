@@ -42,46 +42,6 @@ namespace PDFTextApplication
 
             ProcessInputDirectories(inputFile, outputDirectoryDate);
 
-
-
-            //// Recorrer los directorios de entrada
-            //foreach (string directoryInput in Directory.GetDirectories(inputFile))
-            //{
-            //    string nameDirectoryInput = Path.GetFileName(directoryInput);
-
-            //    // Verificar si el directorio actual no es el directorio de destino
-            //    if (nameDirectoryInput != nameDirectoryDestination)
-            //    {
-            //        // Crear la ruta de destino para el directorio actual
-            //        string destinationRoute = Path.Combine(outputDirectoryDate, nameDirectoryInput);
-            //        CreateDirectoryWithWriteAccess(destinationRoute);
-
-            //        // Obtener archivos TIFF en el directorio actual
-            //        string[] tiffFiles = Directory.GetFiles(directoryInput, inputFormat);
-
-
-
-            //        PdfDocument outputDocument = new PdfDocument();
-
-            //        // Procesar cada archivo TIFF y convertirlo a PDF
-            //        foreach (string tiffFile in tiffFiles)
-            //        {
-            //            string outputPath = Path.Combine(destinationRoute, Path.GetFileNameWithoutExtension(tiffFile) + outputFormat);
-                        
-            //            ConvertTiffToPdf(tiffFile, outputPath);
-
-            //            PdfDocument inputDocument = PdfReader.Open(outputPath, PdfDocumentOpenMode.Import);
-            //            foreach (PdfPage page in inputDocument.Pages)
-            //            {
-            //                outputDocument.AddPage(page);
-            //            }
-            //        }
-
-            //        string outputnamePDFTotal = Path.Combine(destinationRoute, Path.GetFileName(destinationRoute) + outputFormat);
-            //        outputDocument.Save(outputnamePDFTotal);
-            //    }
-            //}
-
             // Detener el cronómetro y calcular el tiempo transcurrido
             stopwatch.Stop(); 
             TimeSpan elapsedTime = stopwatch.Elapsed;
