@@ -5,7 +5,6 @@ using System.IO;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using PdfSharp.Drawing;
-using PdfSharp.Drawing.Layout;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
 using Tesseract;
@@ -22,7 +21,9 @@ namespace PDFTextApplication
 
         const string inputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data"; // Reemplaza con la ruta de tu carpeta
         const string outputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data";
-        const string nameDirectoryDestination = @"Data.Process";
+        const string nameDirectoryDestination = "Data.Process";
+        const string inputFormat = "*.tif";
+        const string outputFormat = ".pdf";
 
         #endregion
 
@@ -32,36 +33,54 @@ namespace PDFTextApplication
             Stopwatch stopwatch = Stopwatch.StartNew();
 
             // Crear el directorio de destino para el archivo de salida
-            string newOutputFile = Path.Combine(outputFile, nameDirectoryDestination);      
-            CreateDirectoryWithWriteAccess(newOutputFile);
+            string outputFileDestination = Path.Combine(outputFile, nameDirectoryDestination);      
+            CreateDirectoryWithWriteAccess(outputFileDestination);
 
             // Generar un nombre de directorio basado en la fecha y hora actual
-            string newOutputDirectoryDate = Path.Combine(newOutputFile, GetNameFileDate());
-            CreateDirectoryWithWriteAccess(newOutputDirectoryDate);
+            string outputDirectoryDate = Path.Combine(outputFileDestination, GetNameFileDate());
+            CreateDirectoryWithWriteAccess(outputDirectoryDate);
 
-            // Recorrer los directorios de entrada
-            foreach (string currentDirectory in Directory.GetDirectories(inputFile))
-            {
-                string nameCurrentDirectory = Path.GetFileName(currentDirectory);
+            ProcessInputDirectories(inputFile, outputDirectoryDate);
 
-                // Verificar si el directorio actual no es el directorio de destino
-                if (nameCurrentDirectory != nameDirectoryDestination)
-                {
-                    // Crear la ruta de destino para el directorio actual
-                    string newRouteDestination = Path.Combine(newOutputDirectoryDate, nameCurrentDirectory);
-                    CreateDirectoryWithWriteAccess(newRouteDestination);
 
-                    // Obtener archivos TIFF en el directorio actual
-                    string[] tiffFiles = Directory.GetFiles(currentDirectory, "*.tif");
 
-                    // Procesar cada archivo TIFF y convertirlo a PDF
-                    foreach (string tiffFile in tiffFiles)
-                    {
-                        string outputPath = Path.Combine(newRouteDestination, Path.GetFileNameWithoutExtension(tiffFile) + ".Procesado.pdf");
-                        ConvertTiffToPdf(tiffFile, outputPath);                
-                    }
-                }
-            }
+            //// Recorrer los directorios de entrada
+            //foreach (string directoryInput in Directory.GetDirectories(inputFile))
+            //{
+            //    string nameDirectoryInput = Path.GetFileName(directoryInput);
+
+            //    // Verificar si el directorio actual no es el directorio de destino
+            //    if (nameDirectoryInput != nameDirectoryDestination)
+            //    {
+            //        // Crear la ruta de destino para el directorio actual
+            //        string destinationRoute = Path.Combine(outputDirectoryDate, nameDirectoryInput);
+            //        CreateDirectoryWithWriteAccess(destinationRoute);
+
+            //        // Obtener archivos TIFF en el directorio actual
+            //        string[] tiffFiles = Directory.GetFiles(directoryInput, inputFormat);
+
+
+
+            //        PdfDocument outputDocument = new PdfDocument();
+
+            //        // Procesar cada archivo TIFF y convertirlo a PDF
+            //        foreach (string tiffFile in tiffFiles)
+            //        {
+            //            string outputPath = Path.Combine(destinationRoute, Path.GetFileNameWithoutExtension(tiffFile) + outputFormat);
+                        
+            //            ConvertTiffToPdf(tiffFile, outputPath);
+
+            //            PdfDocument inputDocument = PdfReader.Open(outputPath, PdfDocumentOpenMode.Import);
+            //            foreach (PdfPage page in inputDocument.Pages)
+            //            {
+            //                outputDocument.AddPage(page);
+            //            }
+            //        }
+
+            //        string outputnamePDFTotal = Path.Combine(destinationRoute, Path.GetFileName(destinationRoute) + outputFormat);
+            //        outputDocument.Save(outputnamePDFTotal);
+            //    }
+            //}
 
             // Detener el cronómetro y calcular el tiempo transcurrido
             stopwatch.Stop(); 
@@ -71,7 +90,60 @@ namespace PDFTextApplication
             Console.ReadLine();
         }
 
+        static void ProcessInputDirectories(string inputFile, string outputDirectoryDate)
+        {
+            // Recorrer los directorios de entrada
+            foreach (string directoryInput in Directory.GetDirectories(inputFile))
+            {
+                string nameDirectoryInput = Path.GetFileName(directoryInput);
 
+                // Verificar si el directorio actual no es el directorio de destino
+                if (nameDirectoryInput != nameDirectoryDestination)
+                {
+                    // Crear la ruta de destino para el directorio actual
+                    string destinationRoute = Path.Combine(outputDirectoryDate, nameDirectoryInput);
+                    CreateDirectoryWithWriteAccess(destinationRoute);
+
+                    ProcessTiffFiles(directoryInput, destinationRoute);
+                }
+            }
+        }
+
+        static void AddPagesFromTiffToPdf(string tiffFilePath, PdfDocument targetDocument)
+        {
+            using (PdfDocument inputDocument = PdfReader.Open(tiffFilePath, PdfDocumentOpenMode.Import))
+            {
+                int pageCounter = inputDocument.PageCount;
+                for (int pageIndex = 0; pageIndex < pageCounter; pageIndex++)
+                {
+                    PdfPage page = inputDocument.Pages[pageIndex];
+                    targetDocument.AddPage(page);
+                }
+            }
+        }
+
+        static void ProcessTiffFiles(string directoryInput, string destinationRoute)
+        {
+            // Obtener archivos TIFF en el directorio actual
+            string[] tiffFiles = Directory.GetFiles(directoryInput, inputFormat);
+            if (tiffFiles.Length == 0) return;
+
+            string outputnamePDFTotal = Path.Combine(destinationRoute, Path.GetFileName(destinationRoute) + outputFormat);
+
+            using (PdfDocument outputDocument = new PdfDocument())
+            {
+                // Procesar cada archivo TIFF y convertirlo a PDF
+                foreach (string tiffFile in tiffFiles)
+                {
+                    string outputPath = Path.Combine(destinationRoute, Path.GetFileNameWithoutExtension(tiffFile) + outputFormat);
+                    ConvertTiffToPdf(tiffFile, outputPath);
+                    AddPagesFromTiffToPdf(outputPath, outputDocument);
+                }
+                SavePdfDocument(outputDocument,outputnamePDFTotal);
+            }
+        }
+
+        // TODO: Arregloarlo para implementarlo en la libreriaOCR
         static void ConvertTiffToPdf(string tiffImagePath, string pdfOutputPath)
         {
             Environment.SetEnvironmentVariable("TESSDATA_PREFIX", tessdataPath);
@@ -96,7 +168,7 @@ namespace PDFTextApplication
 
                                 AddImageToPdf(gfx, tiffImagePath, widthInPoints, heightInPoints);
                                 ProcessText(pageProcessor, gfx, scaleWidth, scaleHeight);
-                                SaveAndClosePdfDocument(document, pdfOutputPath);
+                                SavePdfDocument(document, pdfOutputPath);
                             }
                         }
                     }
@@ -162,14 +234,13 @@ namespace PDFTextApplication
         }
 
         /// <summary>
-        /// Guarda y cierra un documento PDF.
+        /// Guarda un documento PDF.
         /// </summary>
         /// <param name="document">El objeto PdfDocument que se va a guardar y cerrar.</param>
         /// <param name="outputPath">La ruta de salida donde se guardará el documento PDF.</param>
-        static void SaveAndClosePdfDocument(PdfDocument document, string outputPath)
+        static void SavePdfDocument(PdfDocument document, string outputPath)
         {
             document.Save(outputPath);
-            document.Close();
         }
 
         static XGraphics CreateGraphics(PdfDocument document)
@@ -206,10 +277,6 @@ namespace PDFTextApplication
                         XBrush brush = XBrushes.Transparent;                               // Establecer el color del texto como transparente
                         gfx.DrawString(word, font, brush, new XPoint(x1, y1));             // Agregar la palabra y sus coordenadas al PDF
                                                                                            //gfx.DrawString(word, font, XBrushes.Black, new XPoint(x1, y1));  // Agregar la palabra y sus coordenadas al PDF
-
-                        //Console.Write($"Palabra: {word}");
-                        //Console.Write($"  Tamaño Fuente: {realSizeInPoints}");
-                        //Console.WriteLine($":  Ubicación: X={bounds.X1}, Y={bounds.Y1}, Ancho={bounds.Width}, Alto={bounds.Height}");
                     }
                 }
             }
