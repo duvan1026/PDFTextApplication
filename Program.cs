@@ -1,23 +1,28 @@
-﻿using System;
+﻿
+using System;
+//using System.Linq;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Security.AccessControl;
 using System.Security.Principal;
-using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
-using Tesseract;
+using TesseractOCR.Library.src;
 
 namespace PDFTextApplication
 {
-    internal class Program
+    class Program
     {
         #region Constantes
 
         const string tessdataPath = @"C:\Program Files (x86)\Tesseract-OCR\tessdata";
         const string language = "spa";
         const double dpi = 96.0;                                  // Resolución estándar de pantalla
+        
+        //const string inputFile = @"C:\DuvanCastro\AplicacionAAA\Data"; // Reemplaza con la ruta de tu carpeta
+        //const string outputFile = @"C:\DuvanCastro\AplicacionAAA\Data";
 
         const string inputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data"; // Reemplaza con la ruta de tu carpeta
         const string outputFile = @"C:\Users\duvan.castro\Desktop\TestPDFText\Data";
@@ -33,7 +38,7 @@ namespace PDFTextApplication
             Stopwatch stopwatch = Stopwatch.StartNew();
 
             // Crear el directorio de destino para el archivo de salida
-            string outputFileDestination = Path.Combine(outputFile, nameDirectoryDestination);      
+            string outputFileDestination = Path.Combine(outputFile, nameDirectoryDestination);
             CreateDirectoryWithWriteAccess(outputFileDestination);
 
             // Generar un nombre de directorio basado en la fecha y hora actual
@@ -43,13 +48,14 @@ namespace PDFTextApplication
             ProcessInputDirectories(inputFile, outputDirectoryDate);
 
             // Detener el cronómetro y calcular el tiempo transcurrido
-            stopwatch.Stop(); 
+            stopwatch.Stop();
             TimeSpan elapsedTime = stopwatch.Elapsed;
             Console.WriteLine($"Proceso completado en {elapsedTime.TotalMinutes} minutos {elapsedTime.Seconds} segundos");
             Console.WriteLine("Proceso completado. El PDF de texto se ha guardado.");
             Console.ReadLine();
         }
 
+        
         /// <summary>
         /// Procesa los directorios de entrada y mueve archivos a directorios de destino basados en la fecha.
         /// </summary>
@@ -57,10 +63,16 @@ namespace PDFTextApplication
         /// <param name="outputDirectoryDate">El directorio de destino basado en la fecha donde se moverán los archivos.</param>
         static void ProcessInputDirectories(string inputFile, string outputDirectoryDate)
         {
-            // Recorrer los directorios de entrada
-            foreach (string directoryInput in Directory.GetDirectories(inputFile))
+            //// Recorrer los directorios de entrada
+            //foreach (string directoryInput in Directory.GetDirectories(inputFile))
+            //{
+
+            DirectoryInfo inputDirectory = new DirectoryInfo(inputFile);
+
+            // Filtrar y recorrer solo los directorios que cumplen con la condición
+            foreach (var directoryInput in inputDirectory.GetDirectories().Where(dir => !dir.Name.EndsWith(".#")))
             {
-                string nameDirectoryInput = Path.GetFileName(directoryInput);
+                string nameDirectoryInput = Path.GetFileName(directoryInput.FullName);
 
                 // Verificar si el directorio actual no es el directorio de destino
                 if (nameDirectoryInput != nameDirectoryDestination)
@@ -69,7 +81,7 @@ namespace PDFTextApplication
                     string destinationRoute = Path.Combine(outputDirectoryDate, nameDirectoryInput);
                     CreateDirectoryWithWriteAccess(destinationRoute);
 
-                    ProcessTiffFiles(directoryInput, destinationRoute);
+                    ProcessTiffFiles(directoryInput.FullName, destinationRoute);
                 }
             }
         }
@@ -81,9 +93,11 @@ namespace PDFTextApplication
         /// <param name="destinationRoute">El directorio de destino donde se almacenará el documento PDF resultante.</param>
         static void ProcessTiffFiles(string directoryInput, string destinationRoute)
         {
+            //PDFService pDFService = new PDFService();
+
             // Obtener archivos TIFF en el directorio actual
             string[] tiffFiles = GetTiffFilesInDirectory(directoryInput);
-            if (tiffFiles.Length == 0) return;
+            if (tiffFiles == null || tiffFiles.Length == 0) return;
 
             string outputnamePDFTotal = GetOutputPdfName(destinationRoute);
 
@@ -93,12 +107,230 @@ namespace PDFTextApplication
                 foreach (string tiffFile in tiffFiles)
                 {
                     string outputPath = GetPdfOutputPath(destinationRoute, tiffFile);
-                    ConvertTiffToPdf(tiffFile, outputPath);
+                    PDFService.ConvertTiffToPdf(tiffFile, outputPath);
                     AddPagesFromTiffToPdf(outputPath, outputDocument);
                 }
                 SavePdfDocument(outputDocument, outputnamePDFTotal);
+                // TODO: Cambiar nombre d ela carpeta  aña cual se extrajo la informacion
+            }
+
+            AgregarSufijo("C:\\Users\\duvan.castro\\Desktop\\TestPDFText\\Data\\testdata", ".#");
+            AgregarSufijo(directoryInput, ".#");
+        }
+
+        static void AgregarSufijo(string rutaOriginal, string sufijo)
+        {
+            try
+            {
+                // Obtener el nombre de la carpeta actual
+                string nombreCarpeta = Path.GetFileName(rutaOriginal);
+
+                // Agregar el sufijo al nombre
+                string nuevoNombre = String.Concat(nombreCarpeta, sufijo);
+
+                // Obtener la ruta del directorio padre
+                string directorioPadre = Path.GetDirectoryName(rutaOriginal);
+
+                // Combinar la ruta del directorio padre con el nuevo nombre
+                string nuevaRuta = Path.Combine(directorioPadre, nuevoNombre);
+
+                AssignWritePrivilegesToDirectory(rutaOriginal);
+                // Cambiar el nombre de la carpeta
+                string newFolderPath = rutaOriginal + ".#";
+                ChangeFolderName(rutaOriginal, newFolderPath);
+
+
+
+
+                // Obtener el nombre del usuario de Windows actual
+                string currentUserName = WindowsIdentity.GetCurrent().Name;
+                Console.WriteLine("Usuario de Windows actual: " + currentUserName);
+
+                //if (IsAdministrator())
+                //{
+                //    // Lógica de la aplicación
+                //    // ...
+                //    Console.WriteLine("Soy administrador");
+                //    // Verificar los permisos de escritura en la carpeta
+                //    if (HasWritePermissions(rutaOriginal))
+                //    {
+                //        Console.WriteLine("El usuario tiene permisos de escritura en la carpeta.");
+
+                //        // Cambiar el nombre de la carpeta
+                //        //string newFolderPath = rutaOriginal + ".#";
+                //        //ChangeFolderName(rutaOriginal, newFolderPath);
+                //    }
+                //    else
+                //    {
+                //        Console.WriteLine("El usuario NO tiene permisos de escritura en la carpeta.");
+                //    }
+                //}
+                //else
+                //{
+                //    // Si no se ejecuta como administrador, relanzar la aplicación con permisos elevados
+                //    RunElevated();
+                //}
+
+
+
+
+
+                //using (var stream = new FileStream(rutaOriginal, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                //{
+                //    // La carpeta no está en uso, puedes proceder a realizar operaciones
+                //    Console.WriteLine("La carpeta no está en uso.");
+
+                //    // Ahora puedes cambiar el nombre de la carpeta u realizar otras operaciones
+                //    //CambiarNombreCarpeta(rutaCarpeta, "nuevo_nombre");
+                //}
+
+
+                //// Obtenemos una referencia a la carpeta
+                //var directory = new DirectoryInfo(rutaOriginal);
+
+                //// Establecemos el atributo ReadOnly a False
+                //directory.Attributes &= ~FileAttributes.ReadOnly;
+
+                ////if (VerificarAtributoSoloLectura(rutaOriginal))
+                ////{
+                ////    EliminarAtributoSoloLectura(rutaOriginal);
+                ////}
+
+                //// Mover la carpeta con el nuevo nombre
+                //Directory.Move(rutaOriginal, nuevaRuta);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al agregar sufijo: {ex.Message}");
             }
         }
+
+        static bool IsAdministrator()
+        {
+            WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            WindowsPrincipal principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        static void RunElevated()
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo();
+            startInfo.UseShellExecute = true;
+            startInfo.WorkingDirectory = Environment.CurrentDirectory;
+            startInfo.FileName = Assembly.GetEntryAssembly().CodeBase;
+            startInfo.Verb = "runas"; // Esto solicitará elevación de privilegios
+
+            try
+            {
+                Process.Start(startInfo);
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // El usuario canceló la solicitud de permisos elevados
+            }
+        }
+
+        static void ChangeFolderName(string oldFolderPath, string newFolderPath)
+        {
+            try
+            {
+                // Cambiar el nombre de la carpeta
+                System.IO.Directory.Move(oldFolderPath, newFolderPath);
+            }
+            catch (System.IO.IOException ex)
+            {
+                // Verificar si la excepción es debido a que la carpeta está en uso por otro proceso
+                if (IsFolderInUse(ex))
+                {
+                    Console.WriteLine("La carpeta está siendo utilizada por otro proceso.");
+                }
+                else
+                {
+                    Console.WriteLine($"Error al cambiar el nombre de la carpeta: {ex.Message}");
+                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.WriteLine($"Error de acceso no autorizado al cambiar el nombre de la carpeta: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al cambiar el nombre de la carpeta: {ex.Message}");
+            }
+        }
+
+        static bool IsFolderInUse(System.IO.IOException ex)
+        {
+            int errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
+            return errorCode == 32 || errorCode == 33; // 32: El proceso no puede obtener acceso al archivo porque está siendo utilizado por otro proceso, 33: El proceso no puede obtener acceso al archivo porque otro proceso tiene bloqueado una porción del archivo.
+        }
+
+        static bool HasWritePermissions(string folderPath)
+        {
+            try
+            {
+                // Obtener los permisos de la carpeta
+                DirectorySecurity directorySecurity = System.IO.Directory.GetAccessControl(folderPath);
+
+                // Obtener la identidad del usuario actual
+                WindowsIdentity windowsIdentity = WindowsIdentity.GetCurrent();
+                WindowsPrincipal windowsPrincipal = new WindowsPrincipal(windowsIdentity);
+
+                // Verificar si el usuario actual tiene permisos de escritura
+                AuthorizationRuleCollection rules = directorySecurity.GetAccessRules(true, true, typeof(SecurityIdentifier));
+                foreach (FileSystemAccessRule rule in rules)
+                {
+                    if (windowsPrincipal.IsInRole(rule.IdentityReference as SecurityIdentifier) &&
+                        (rule.FileSystemRights & FileSystemRights.WriteData) == FileSystemRights.WriteData)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // Manejar la excepción según tus necesidades
+                Console.WriteLine("Error al verificar permisos: " + ex.Message);
+                return false;
+            }
+        }
+
+        static bool VerificarAtributoSoloLectura(string rutaCarpeta)
+        {
+            try
+            {
+                // Verificar si el atributo de solo lectura está presente
+                return (File.GetAttributes(rutaCarpeta) & FileAttributes.ReadOnly) == FileAttributes.ReadOnly;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al verificar el atributo de solo lectura: {ex.Message}");
+                return false;
+            }
+        }
+
+        static void EliminarAtributoSoloLectura(string rutaCarpeta)
+        {
+            try
+            {
+                // Crear un objeto DirectoryInfo para obtener información de la carpeta
+                DirectoryInfo directorioInfo = new DirectoryInfo(rutaCarpeta);
+
+                // Eliminar el atributo de solo lectura si está presente
+                if ((directorioInfo.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                {
+                    directorioInfo.Attributes &= ~FileAttributes.ReadOnly;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al eliminar el atributo de solo lectura: {ex.Message}");
+            }
+        }
+
+
 
         /// <summary>
         /// Obtiene el nombre del archivo PDF de salida basado en el directorio de destino.
@@ -158,41 +390,6 @@ namespace PDFTextApplication
             }
         }
 
-
-
-        // TODO: Arregloarlo para implementarlo en la libreriaOCR
-        static void ConvertTiffToPdf(string tiffImagePath, string pdfOutputPath)
-        {
-            Environment.SetEnvironmentVariable("TESSDATA_PREFIX", tessdataPath);
-
-            using (var engine = new TesseractEngine(tessdataPath, language, EngineMode.Default))
-            {
-                using (var image = new Bitmap(tiffImagePath))
-                {
-                    using (var pageProcessor = engine.Process(image))
-                    {
-                        double scaleWidth, scaleHeight;
-
-                        var imageSize = new XSize(ConvertToPoints(image.Width, dpi), 
-                                                  ConvertToPoints(image.Height, dpi));
-
-                        using (var document = CreateCustomPdfDoc(imageSize))
-                        {
-                            using (var gfx = CreateGraphics(document))
-                            {
-                                scaleWidth = CalculateScale(imageSize.Width, image.Width);
-                                scaleHeight = CalculateScale(imageSize.Height, image.Height);
-
-                                AddImageToPdf(gfx, tiffImagePath, imageSize);
-                                ProcessText(pageProcessor, gfx, scaleWidth, scaleHeight);
-                                SavePdfDocument(document, pdfOutputPath);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         /// <summary>
         /// Verifica si un directorio existe y lo crea si no existe. Luego, asigna permisos de escritura al directorio.
         /// </summary>
@@ -236,30 +433,6 @@ namespace PDFTextApplication
             newFileInfo.SetAccessControl(newFileSecurity);                           // Establecer el nuevo control de acceso en la carpeta.
         }
 
-        /// <summary>
-        /// Calcula la escala entre dos valores numéricos.
-        /// </summary>
-        /// <param name="value1">El primer valor numérico.</param>
-        /// <param name="value2">El segundo valor numérico (divisor).</param>
-        /// <returns>El resultado de dividir el primer valor por el segundo valor, que representa la escala.</returns>
-        static double CalculateScale(double value1, double value2)
-        {
-            return value1 / value2;
-        }
-
-        /// <summary>
-        /// Crea un documento PDF personalizado con las dimensiones especificadas.
-        /// </summary>
-        /// <param name="imageSize">El tamaño del documento PDF en formato XSize (ancho y alto).</param>
-        /// <returns>Un objeto PdfDocument que representa el nuevo documento PDF con las dimensiones especificadas.</returns>
-        static PdfDocument CreateCustomPdfDoc(XSize imageSize)
-        {
-            var document = CreatePdfDocument();
-            var page = document.AddPage();
-            page.Width = imageSize.Width;
-            page.Height = imageSize.Height;
-            return document;
-        }
 
         /// <summary>
         /// Guarda un documento PDF.
@@ -269,119 +442,7 @@ namespace PDFTextApplication
         static void SavePdfDocument(PdfDocument document, string outputPath)
         {
             document.Save(outputPath);
-        }
-
-        /// <summary>
-        /// Crea un contexto gráfico (XGraphics) para dibujar en la primera página de un documento PDF.
-        /// </summary>
-        /// <param name="document">El documento PDF en el que se va a crear el contexto gráfico.</param>
-        /// <returns>Un objeto XGraphics que proporciona un contexto gráfico para dibujar en la primera página del documento PDF.</returns>
-        static XGraphics CreateGraphics(PdfDocument document)
-        {
-            var page = document.Pages[0];
-            return XGraphics.FromPdfPage(page);
-        }
-
-        /// <summary>
-        /// Convierte un valor de longitud desde una unidad de medida específica a puntos (72 puntos por pulgada) en un contexto de resolución dado.
-        /// </summary>
-        /// <param name="value">El valor de longitud que se desea convertir.</param>
-        /// <param name="dpi">La resolución en puntos por pulgada (DPI) en la que se realiza la conversión.</param>
-        /// <returns>El valor de longitud convertido a puntos en el contexto de resolución especificado.</returns>
-        static double ConvertToPoints(double value, double dpi)
-        {
-            return value * 72.0 / dpi;
-        }
-
-        /// <summary>
-        /// Procesa y dibuja palabras en un documento PDF.
-        /// </summary>
-        /// <param name="pageProcessor">El procesador de páginas Tesseract.</param>
-        /// <param name="gfx">El contexto gráfico para el PDF.</param>
-        /// <param name="scaleWidth">Factor de escala para el ancho.</param>
-        /// <param name="scaleHeight">Factor de escala para la altura.</param>
-        static void ProcessText(Tesseract.Page pageProcessor, XGraphics gfx, double scaleWidth, double scaleHeight)
-        {
-            var iter = pageProcessor.GetIterator();
-            iter.Begin();
-
-            while (iter.Next(PageIteratorLevel.Word))
-            {
-                var word = iter.GetText(PageIteratorLevel.Word).Trim();
-                if (!string.IsNullOrEmpty(word) && !word.Contains("|"))
-                {
-                    Rect bounds;
-                    if (iter.TryGetBoundingBox(PageIteratorLevel.Word, out bounds))
-                    {
-                        double x1 = bounds.X1 * scaleWidth;
-                        double y1 = (bounds.Y1 * scaleHeight) + (bounds.Height * scaleHeight);
-
-                        double realSizeInPoints = CalculateFontSize(bounds.Height);
-
-                        DrawTextOnPdf(gfx, word, new XPoint(x1, y1), realSizeInPoints);
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Dibuja el texto en un documento PDF en la ubicación especificada con el tamaño de fuente indicado.
-        /// </summary>
-        /// <param name="gfx">El contexto gráfico para el PDF.</param>
-        /// <param name="text">El texto a dibujar.</param>
-        /// <param name="position">La posición (X, Y) en la que se dibujará el texto.</param>
-        /// <param name="fontSize">Tamaño de fuente en puntos.</param>
-        static void DrawTextOnPdf(XGraphics gfx, string text, XPoint position, double fontSize)
-        {
-            var font = new XFont("Arial", fontSize);                // Agrega la palabra con el tamaño de fuente calculado
-            XBrush brush = XBrushes.Transparent;                    // Establecer el color del texto como transparente
-            gfx.DrawString(text, font, brush, position);    // Agregar la palabra y sus coordenadas al PDF
-            //gfx.DrawString(word, font, XBrushes.Black, new XPoint(x1, y1));  // Agregar la palabra y sus coordenadas al PDF
-        }
-
-
-        /// <summary>
-        /// Agrega una imagen desde un archivo a un documento PDF en el contexto gráfico especificado.
-        /// </summary>
-        /// <param name="gfx">El contexto gráfico donde se agregará la imagen al PDF.</param>
-        /// <param name="imagePath">La ruta del archivo de imagen a agregar al PDF.</param>
-        /// <param name="imageSize">El tamaño de la imagen a agregar en el formato XSize (ancho y alto).</param>
-        static void AddImageToPdf(XGraphics gfx, string imagePath, XSize imageSize)
-        {
-            var xImage = XImage.FromFile(imagePath);
-            gfx.DrawImage(xImage, 0, 0, imageSize.Width, imageSize.Height);
-        }
-
-        /// <summary>
-        /// Calcula el tamaño de fuente en puntos para que la altura de la fuente coincida con el valor deseado en píxeles.
-        /// </summary>
-        /// <param name="targetHeightInPixels">La altura de la fuente deseada en píxeles.</param>
-        /// <returns>El tamaño de fuente en puntos que produce la altura de fuente deseada.</returns>
-        static double CalculateFontSize( double targetHeightInPixels)
-        {
-            const double tolerance = 1;
-            const string fontFamilyName = "Arial";
-            double realSizeInPoints = 12;
-
-            XFont fontTest = new XFont(fontFamilyName, realSizeInPoints);
-            double fontHeightInPixels = fontTest.GetHeight();
-
-            while (Math.Abs(fontHeightInPixels - targetHeightInPixels) > tolerance)
-            {
-                if (fontHeightInPixels < targetHeightInPixels)
-                {
-                    realSizeInPoints += 1.0;
-                }
-                else
-                {
-                    realSizeInPoints -= 1.0;
-                }
-
-                fontTest = new XFont(fontFamilyName, realSizeInPoints);
-                fontHeightInPixels = fontTest.GetHeight();
-            }
-
-            return realSizeInPoints;
-        }
+        }   
+        
     }
 }
